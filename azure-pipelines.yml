@@ -8,10 +8,10 @@ variables:
 
 steps:
 - bash: |
-    echo "🔍 Probando conexión con Dynatrace..."
+    echo "🔍 Probando conexión con Dynatrace en $DYNATRACE_URL"
     CODE=$(curl -s -o /dev/null -w "%{http_code}" \
       -H "Authorization: Api-Token $DYNATRACE_API_TOKEN" \
-      "$(DYNATRACE_URL)/api/v2/metrics")
+      "$DYNATRACE_URL/api/v2/metrics")
     echo "HTTP CODE: $CODE"
     if [ "$CODE" -ne 200 ]; then
       echo "❌ Falló la conexión (esperado 200)"
@@ -19,19 +19,22 @@ steps:
     fi
     echo "✅ Conexión OK"
   displayName: 'Test conexión Dynatrace'
+  env:
+    DYNATRACE_API_TOKEN: $(DYNATRACE_API_TOKEN)
+    DYNATRACE_URL: $(DYNATRACE_URL)
 
 - bash: |
     echo "🚀 Enviando evento de prueba..."
     NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-    curl -s -X POST "$(DYNATRACE_URL)/api/v2/events/ingest" \
+    curl -s -X POST "$DYNATRACE_URL/api/v2/events/ingest" \
       -H "Authorization: Api-Token $DYNATRACE_API_TOKEN" \
       -H "Content-Type: application/json" \
       -d "{
             \"eventType\": \"CUSTOM_ANNOTATION\",
             \"title\": \"Azure DevOps POC conectado\",
             \"properties\": {
-              \"service\": \"$(SERVICE_NAME)\",
-              \"env\": \"$(ENV_NAME)\",
+              \"service\": \"$SERVICE_NAME\",
+              \"env\": \"$ENV_NAME\",
               \"pipelineId\": \"$(System.DefinitionId)\",
               \"runId\": \"$(Build.BuildId)\"
             }
@@ -40,3 +43,8 @@ steps:
     echo "✅ Evento enviado. Revisa Dynatrace → Events."
   displayName: 'Enviar evento de prueba'
   condition: succeeded()
+  env:
+    DYNATRACE_API_TOKEN: $(DYNATRACE_API_TOKEN)
+    DYNATRACE_URL: $(DYNATRACE_URL)
+    SERVICE_NAME: $(SERVICE_NAME)
+    ENV_NAME: $(ENV_NAME)
