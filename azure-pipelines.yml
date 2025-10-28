@@ -30,17 +30,19 @@ steps:
       -H "Authorization: Api-Token $DYNATRACE_API_TOKEN" \
       -H "Content-Type: application/json" \
       -d "{
-            \"eventType\": \"CUSTOM_ANNOTATION\",
             \"title\": \"Azure DevOps POC conectado\",
+            \"event.type\": \"CUSTOM_ANNOTATION\",
+            \"source\": \"AzureDevOps\",
+            \"timestamp\": \"$NOW\",
             \"properties\": {
-              \"service\": \"$SERVICE_NAME\",
-              \"env\": \"$ENV_NAME\",
+              \"service\": \"$(SERVICE_NAME)\",
+              \"env\": \"$(ENV_NAME)\",
               \"pipelineId\": \"$(System.DefinitionId)\",
               \"runId\": \"$(Build.BuildId)\"
             }
           }"
     echo ""
-    echo "✅ Evento enviado. Revisa Dynatrace → Events."
+    echo "✅ Evento enviado. Revisa Dynatrace → Logs & Events (fetch events)."
   displayName: 'Enviar evento de prueba'
   condition: succeeded()
   env:
