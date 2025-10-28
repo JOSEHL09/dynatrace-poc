@@ -1,0 +1,42 @@
+trigger: none
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+- group: dynatrace-vars
+
+steps:
+- bash: |
+    echo "🔍 Probando conexión con Dynatrace..."
+    CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+      -H "Authorization: Api-Token $DYNATRACE_API_TOKEN" \
+      "$(DYNATRACE_URL)/api/v2/metrics")
+    echo "HTTP CODE: $CODE"
+    if [ "$CODE" -ne 200 ]; then
+      echo "❌ Falló la conexión (esperado 200)"
+      exit 1
+    fi
+    echo "✅ Conexión OK"
+  displayName: 'Test conexión Dynatrace'
+
+- bash: |
+    echo "🚀 Enviando evento de prueba..."
+    NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+    curl -s -X POST "$(DYNATRACE_URL)/api/v2/events/ingest" \
+      -H "Authorization: Api-Token $DYNATRACE_API_TOKEN" \
+      -H "Content-Type: application/json" \
+      -d "{
+            \"eventType\": \"CUSTOM_ANNOTATION\",
+            \"title\": \"Azure DevOps POC conectado\",
+            \"properties\": {
+              \"service\": \"$(SERVICE_NAME)\",
+              \"env\": \"$(ENV_NAME)\",
+              \"pipelineId\": \"$(System.DefinitionId)\",
+              \"runId\": \"$(Build.BuildId)\"
+            }
+          }"
+    echo ""
+    echo "✅ Evento enviado. Revisa Dynatrace → Events."
+  displayName: 'Enviar evento de prueba'
+  condition: succeeded()
