@@ -26,7 +26,7 @@ steps:
 - bash: |
     echo "🚀 Enviando evento de prueba..."
     NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-    curl -s -X POST "$(DYNATRACE_URL)/platform/ingest/v1/events" \
+    curl -s -X POST "$(DYNATRACE_URL)/api/v2/logs/ingest" \
       -H "Authorization: Api-Token $DYNATRACE_API_TOKEN" \
       -H "Content-Type: application/json" \
       -d "{
