@@ -4,141 +4,130 @@ pool:
   vmImage: ubuntu-latest
 
 variables:
-- group: dynatrace-vars
+- group: dynatrace-vars     # Contiene DYNATRACE_API_TOKEN y DYNATRACE_URL
 - name: SERVICE_NAME
   value: order-service
 - name: ENV_NAME
   value: dev
 
 steps:
-# 1) Test de conexion
+# 1️⃣ Test de conexión con Dynatrace
 - bash: |
-    echo "Probar conexion con Dynatrace en ${DYNATRACE_URL}"
+    echo "Probar conexión con Dynatrace en ${DYNATRACE_URL}"
     CODE=$(curl -s -o /dev/null -w "%{http_code}" \
       -H "Authorization: Api-Token ${DYNATRACE_API_TOKEN}" \
       "${DYNATRACE_URL}/api/v2/metrics")
     echo "HTTP CODE: ${CODE}"
     if [ "${CODE}" -ne 200 ]; then
-      echo "Fallo la conexion (esperado 200)"
+      echo "❌ Falló la conexión (esperado 200)"
       exit 1
     fi
-    echo "Conexion OK"
-  displayName: Test conexion Dynatrace
+    echo "✅ Conexión OK"
+  displayName: "Test conexión Dynatrace"
   env:
     DYNATRACE_API_TOKEN: $(DYNATRACE_API_TOKEN)
     DYNATRACE_URL: $(DYNATRACE_URL)
 
-# 2) Log inicial de build
+# 2️⃣ Log inicial de Build
 - bash: |
     set -e
     TS_MS=$(date +%s%3N)
-
     PIPE_NAME="$(Build.DefinitionName)"
-    SERVICE="$(SERVICE_NAME)"
-    ENVIRON="$(ENV_NAME)"
-    PIPE_ID="$(System.DefinitionId)"
-    RUN_ID="$(Build.BuildId)"
-    BRANCH="$(Build.SourceBranch)"
-    COMMIT="$(Build.SourceVersion)"
+    BODY=$(printf '[{"timestamp": %s, "severity": "INFO", "title": "Azure DevOps Build STARTED", "content": "Inicio de ejecución del pipeline %s", "dt.source": "azure-devops", "service.name": "%s", "env": "%s", "pipeline.id": "%s", "run.id": "%s", "status": "STARTED"}]' \
+      "$TS_MS" "$PIPE_NAME" "$(SERVICE_NAME)" "$(ENV_NAME)" "$(System.DefinitionId)" "$(Build.BuildId)")
 
-    BODY=$(printf '[{"timestamp": %s, "severity": "INFO", "title": "Azure DevOps Build STARTED", "content": "Inicio de ejecucion del pipeline %s", "dt.source": "azure-devops", "service.name": "%s", "env": "%s", "pipeline.id": "%s", "run.id": "%s", "build.branch": "%s", "commit": "%s", "status": "STARTED"}]' "$TS_MS" "$PIPE_NAME" "$SERVICE" "$ENVIRON" "$PIPE_ID" "$RUN_ID" "$BRANCH" "$COMMIT")
-
-    echo "Payload:"
+    echo "Payload STARTED:"
     echo "${BODY}"
 
     RESP=$(curl -s -o /tmp/resp.json -w "%{http_code}" -X POST "${DYNATRACE_URL}/api/v2/logs/ingest" \
       -H "Authorization: Api-Token ${DYNATRACE_API_TOKEN}" \
-      -H "Content-Type: application/json; charset=utf-8" \
-      -H "Accept: application/json; charset=utf-8" \
-      -d "${BODY}")
-
+      -H "Content-Type: application/json" -d "${BODY}")
     echo "HTTP CODE: ${RESP}"
-    cat /tmp/resp.json || true
-    case "${RESP}" in
-      2*) echo "Log inicial enviado" ;;
-      *) echo "Error enviando log inicial"; exit 1 ;;
-    esac
-  displayName: Enviar log inicial de build
+  displayName: "Enviar log STARTED"
   env:
     DYNATRACE_API_TOKEN: $(DYNATRACE_API_TOKEN)
     DYNATRACE_URL: $(DYNATRACE_URL)
     SERVICE_NAME: $(SERVICE_NAME)
     ENV_NAME: $(ENV_NAME)
 
-# 3) Log final (siempre)
+# 3️⃣ Simular ejecución exitosa
+- bash: |
+    echo "Compilando código..."
+    sleep 2
+    echo "✅ Build completado con éxito"
+  displayName: "Simular build exitoso"
+
+# 4️⃣ Log final de build SUCCESS
 - bash: |
     set -e
     TS_MS=$(date +%s%3N)
-
-    if [ "$(Agent.JobStatus)" = "Succeeded" ]; then
-      STATUS="SUCCESS"
-    else
-      STATUS="FAILED"
-    fi
-
     PIPE_NAME="$(Build.DefinitionName)"
-    SERVICE="$(SERVICE_NAME)"
-    ENVIRON="$(ENV_NAME)"
-    PIPE_ID="$(System.DefinitionId)"
-    RUN_ID="$(Build.BuildId)"
-    BRANCH="$(Build.SourceBranch)"
-    COMMIT="$(Build.SourceVersion)"
+    BODY=$(printf '[{"timestamp": %s, "severity": "OK", "title": "Azure DevOps Build SUCCESS", "content": "Pipeline %s ejecutado correctamente", "dt.source": "azure-devops", "service.name": "%s", "env": "%s", "pipeline.id": "%s", "run.id": "%s", "status": "SUCCESS"}]' \
+      "$TS_MS" "$PIPE_NAME" "$(SERVICE_NAME)" "$(ENV_NAME)" "$(System.DefinitionId)" "$(Build.BuildId)")
 
-    BODY=$(printf '[{"timestamp": %s, "severity": "INFO", "title": "Azure DevOps Build %s", "content": "Pipeline %s ejecutado con estado %s", "dt.source": "azure-devops", "service.name": "%s", "env": "%s", "pipeline.id": "%s", "run.id": "%s", "build.branch": "%s", "commit": "%s", "status": "%s"}]' "$TS_MS" "$STATUS" "$PIPE_NAME" "$STATUS" "$SERVICE" "$ENVIRON" "$PIPE_ID" "$RUN_ID" "$BRANCH" "$COMMIT" "$STATUS")
-
-    echo "Payload:"
+    echo "Payload SUCCESS:"
     echo "${BODY}"
 
     RESP=$(curl -s -o /tmp/resp.json -w "%{http_code}" -X POST "${DYNATRACE_URL}/api/v2/logs/ingest" \
       -H "Authorization: Api-Token ${DYNATRACE_API_TOKEN}" \
-      -H "Content-Type: application/json; charset=utf-8" \
-      -H "Accept: application/json; charset=utf-8" \
-      -d "${BODY}")
-
+      -H "Content-Type: application/json" -d "${BODY}")
     echo "HTTP CODE: ${RESP}"
-    cat /tmp/resp.json || true
-    case "${RESP}" in
-      2*) echo "Log final enviado (${STATUS})" ;;
-      *) echo "Error enviando log final"; exit 1 ;;
-    esac
-  displayName: Enviar log final de build
-  condition: always()
+  displayName: "Enviar log SUCCESS"
   env:
     DYNATRACE_API_TOKEN: $(DYNATRACE_API_TOKEN)
     DYNATRACE_URL: $(DYNATRACE_URL)
     SERVICE_NAME: $(SERVICE_NAME)
     ENV_NAME: $(ENV_NAME)
 
-# 4) Log de release (opcional, solo si aplica)
+# 5️⃣ Simular fallo (para probar color rojo)
+- bash: |
+    echo "Simulando fallo de compilación..."
+    sleep 2
+    echo "❌ Error crítico en build simulado"
+    exit 1
+  displayName: "Simular build fallido (ERROR)"
+  continueOnError: true
+
+# 6️⃣ Log de build FAILED (si hubo error)
 - bash: |
     set -e
     TS_MS=$(date +%s%3N)
-
     PIPE_NAME="$(Build.DefinitionName)"
-    SERVICE="$(SERVICE_NAME)"
-    ENVIRON="$(ENV_NAME)"
-    PIPE_ID="$(System.DefinitionId)"
-    RUN_ID="$(Build.BuildId)"
+    BODY=$(printf '[{"timestamp": %s, "severity": "ERROR", "title": "Azure DevOps Build FAILED", "content": "Pipeline %s falló durante la simulación", "dt.source": "azure-devops", "service.name": "%s", "env": "%s", "pipeline.id": "%s", "run.id": "%s", "status": "FAILED"}]' \
+      "$TS_MS" "$PIPE_NAME" "$(SERVICE_NAME)" "$(ENV_NAME)" "$(System.DefinitionId)" "$(Build.BuildId)")
 
-    BODY=$(printf '[{"timestamp": %s, "severity": "INFO", "title": "Azure DevOps Release ejecutada", "content": "Se completo la publicacion del pipeline %s", "dt.source": "azure-devops", "service.name": "%s", "env": "%s", "pipeline.id": "%s", "run.id": "%s", "status": "RELEASED"}]' "$TS_MS" "$PIPE_NAME" "$SERVICE" "$ENVIRON" "$PIPE_ID" "$RUN_ID")
-
-    echo "Payload:"
+    echo "Payload FAILED:"
     echo "${BODY}"
 
     RESP=$(curl -s -o /tmp/resp.json -w "%{http_code}" -X POST "${DYNATRACE_URL}/api/v2/logs/ingest" \
       -H "Authorization: Api-Token ${DYNATRACE_API_TOKEN}" \
-      -H "Content-Type: application/json; charset=utf-8" \
-      -H "Accept: application/json; charset=utf-8" \
-      -d "${BODY}")
-
+      -H "Content-Type: application/json" -d "${BODY}")
     echo "HTTP CODE: ${RESP}"
-    cat /tmp/resp.json || true
-    case "${RESP}" in
-      2*) echo "Log de release enviado" ;;
-      *) echo "Error enviando log de release"; exit 1 ;;
-    esac
-  displayName: Enviar log de release
-  condition: succeeded()
+  displayName: "Enviar log FAILED"
+  condition: succeededOrFailed()
+  env:
+    DYNATRACE_API_TOKEN: $(DYNATRACE_API_TOKEN)
+    DYNATRACE_URL: $(DYNATRACE_URL)
+    SERVICE_NAME: $(SERVICE_NAME)
+    ENV_NAME: $(ENV_NAME)
+
+# 7️⃣ Log de RELEASE (simulado)
+- bash: |
+    set -e
+    TS_MS=$(date +%s%3N)
+    PIPE_NAME="$(Build.DefinitionName)"
+    BODY=$(printf '[{"timestamp": %s, "severity": "INFO", "title": "Azure DevOps Release ejecutada", "content": "Se completó la publicación simulada del pipeline %s", "dt.source": "azure-devops", "service.name": "%s", "env": "%s", "pipeline.id": "%s", "run.id": "%s", "status": "RELEASED"}]' \
+      "$TS_MS" "$PIPE_NAME" "$(SERVICE_NAME)" "$(ENV_NAME)" "$(System.DefinitionId)" "$(Build.BuildId)")
+
+    echo "Payload RELEASE:"
+    echo "${BODY}"
+
+    RESP=$(curl -s -o /tmp/resp.json -w "%{http_code}" -X POST "${DYNATRACE_URL}/api/v2/logs/ingest" \
+      -H "Authorization: Api-Token ${DYNATRACE_API_TOKEN}" \
+      -H "Content-Type: application/json" -d "${BODY}")
+    echo "HTTP CODE: ${RESP}"
+  displayName: "Enviar log RELEASE"
+  condition: succeededOrFailed()
   env:
     DYNATRACE_API_TOKEN: $(DYNATRACE_API_TOKEN)
     DYNATRACE_URL: $(DYNATRACE_URL)
