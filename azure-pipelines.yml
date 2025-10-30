@@ -23,7 +23,7 @@ steps:
       exit 1
     fi
     echo "✅ Conexión OK con Dynatrace"
-  displayName: 'Test conexión Dynatrace'
+  displayName: "Test conexión Dynatrace"
   env:
     DYNATRACE_API_TOKEN: $(DYNATRACE_API_TOKEN)
     DYNATRACE_URL: $(DYNATRACE_URL)
@@ -32,22 +32,21 @@ steps:
 - bash: |
     NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
     echo "🚀 Enviando LOG inicial de Build a Dynatrace..."
-    BODY=$(cat <<JSON
-[
-  {
-    "timestamp": "$NOW",
-    "content": "Inicio de ejecución del pipeline $(Build.DefinitionName)",
-    "title": "Azure DevOps Build STARTED",
-    "log.source": "AzureDevOps",
-    "service.name": "$(SERVICE_NAME)",
-    "env": "$(ENV_NAME)",
-    "pipeline.id": "$(System.DefinitionId)",
-    "run.id": "$(Build.BuildId)",
-    "status": "STARTED"
-  }
-]
-JSON
-)
+    BODY="[
+      {
+        \"timestamp\": \"$NOW\",
+        \"content\": \"Inicio de ejecución del pipeline $(Build.DefinitionName)\",
+        \"title\": \"Azure DevOps Build STARTED\",
+        \"log.source\": \"AzureDevOps\",
+        \"service.name\": \"$(SERVICE_NAME)\",
+        \"env\": \"$(ENV_NAME)\",
+        \"pipeline.id\": \"$(System.DefinitionId)\",
+        \"run.id\": \"$(Build.BuildId)\",
+        \"status\": \"STARTED\"
+      }
+    ]"
+    echo "Payload:"
+    echo "$BODY"
     curl -s -X POST "$DYNATRACE_URL/api/v2/logs/ingest" \
       -H "Authorization: Api-Token $DYNATRACE_API_TOKEN" \
       -H "Content-Type: application/json; charset=utf-8" \
@@ -65,23 +64,21 @@ JSON
     echo "📦 Enviando log final de build..."
     STATUS=$(if [ "$(Agent.JobStatus)" == "Succeeded" ]; then echo "SUCCESS"; else echo "FAILED"; fi)
     NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-
-    BODY=$(cat <<JSON
-[
-  {
-    "timestamp": "$NOW",
-    "title": "Azure DevOps Build $STATUS",
-    "content": "Pipeline $(Build.DefinitionName) ejecutado con estado $STATUS",
-    "log.source": "AzureDevOps",
-    "service.name": "$(SERVICE_NAME)",
-    "env": "$(ENV_NAME)",
-    "pipeline.id": "$(System.DefinitionId)",
-    "run.id": "$(Build.BuildId)",
-    "status": "$STATUS"
-  }
-]
-JSON
-)
+    BODY="[
+      {
+        \"timestamp\": \"$NOW\",
+        \"title\": \"Azure DevOps Build $STATUS\",
+        \"content\": \"Pipeline $(Build.DefinitionName) ejecutado con estado $STATUS\",
+        \"log.source\": \"AzureDevOps\",
+        \"service.name\": \"$(SERVICE_NAME)\",
+        \"env\": \"$(ENV_NAME)\",
+        \"pipeline.id\": \"$(System.DefinitionId)\",
+        \"run.id\": \"$(Build.BuildId)\",
+        \"status\": \"$STATUS\"
+      }
+    ]"
+    echo "Payload:"
+    echo "$BODY"
     curl -s -X POST "$DYNATRACE_URL/api/v2/logs/ingest" \
       -H "Authorization: Api-Token $DYNATRACE_API_TOKEN" \
       -H "Content-Type: application/json; charset=utf-8" \
@@ -99,23 +96,21 @@ JSON
 - bash: |
     echo "🚢 Enviando log de RELEASE..."
     NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-
-    BODY=$(cat <<JSON
-[
-  {
-    "timestamp": "$NOW",
-    "title": "Azure DevOps Release ejecutada",
-    "content": "Se completó la publicación del pipeline $(Build.DefinitionName)",
-    "log.source": "AzureDevOps",
-    "service.name": "$(SERVICE_NAME)",
-    "env": "$(ENV_NAME)",
-    "pipeline.id": "$(System.DefinitionId)",
-    "run.id": "$(Build.BuildId)",
-    "status": "RELEASED"
-  }
-]
-JSON
-)
+    BODY="[
+      {
+        \"timestamp\": \"$NOW\",
+        \"title\": \"Azure DevOps Release ejecutada\",
+        \"content\": \"Se completó la publicación del pipeline $(Build.DefinitionName)\",
+        \"log.source\": \"AzureDevOps\",
+        \"service.name\": \"$(SERVICE_NAME)\",
+        \"env\": \"$(ENV_NAME)\",
+        \"pipeline.id\": \"$(System.DefinitionId)\",
+        \"run.id\": \"$(Build.BuildId)\",
+        \"status\": \"RELEASED\"
+      }
+    ]"
+    echo "Payload:"
+    echo "$BODY"
     curl -s -X POST "$DYNATRACE_URL/api/v2/logs/ingest" \
       -H "Authorization: Api-Token $DYNATRACE_API_TOKEN" \
       -H "Content-Type: application/json; charset=utf-8" \
