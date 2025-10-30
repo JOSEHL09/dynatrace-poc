@@ -50,3 +50,26 @@ steps:
     DYNATRACE_URL: $(DYNATRACE_URL)
     SERVICE_NAME: $(SERVICE_NAME)
     ENV_NAME: $(ENV_NAME)
+- bash: |
+    echo "📦 Enviando log de build y release a Dynatrace..."
+    STATUS=$(if [ "$(Agent.JobStatus)" == "Succeeded" ]; then echo "SUCCESS"; else echo "FAILED"; fi)
+    NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+    curl -s -X POST "$(DYNATRACE_URL)/api/v2/logs/ingest" \
+      -H "Authorization: Api-Token $DYNATRACE_API_TOKEN" \
+      -H "Content-Type: application/json; charset=utf-8" \
+      -d "[
+        {
+          \"timestamp\": \"$NOW\",
+          \"title\": \"Azure DevOps Build $STATUS\",
+          \"content\": \"Pipeline $(Build.DefinitionName) ejecutado con estado $STATUS\",
+          \"log.source\": \"AzureDevOps\",
+          \"service.name\": \"$(SERVICE_NAME)\",
+          \"env\": \"$(ENV_NAME)\",
+          \"pipeline.id\": \"$(System.DefinitionId)\",
+          \"run.id\": \"$(Build.BuildId)\",
+          \"status\": \"$STATUS\"
+        }
+      ]"
+  displayName: "Enviar log de build/release a Dynatrace"
+  condition: always()
