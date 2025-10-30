@@ -1,12 +1,9 @@
-# azure-pipelines.yml — Versión corregida y lista para pegar
-
 trigger: none
 
 pool:
   vmImage: 'ubuntu-latest'
 
 variables:
-# Grupo con DYNATRACE_API_TOKEN y DYNATRACE_URL
 - group: dynatrace-vars
 - name: SERVICE_NAME
   value: order-service
@@ -14,28 +11,28 @@ variables:
   value: dev
 
 steps:
-# 1) Test de conexión a Dynatrace
+# 1️⃣ Test de conexión a Dynatrace
 - bash: |
-    echo "Probando conexión con Dynatrace en $DYNATRACE_URL"
+    echo "🔍 Probando conexión con Dynatrace en $DYNATRACE_URL"
     CODE=$(curl -s -o /dev/null -w "%{http_code}" \
       -H "Authorization: Api-Token $DYNATRACE_API_TOKEN" \
       "$DYNATRACE_URL/api/v2/metrics")
     echo "HTTP CODE: $CODE"
     if [ "$CODE" -ne 200 ]; then
-      echo "Fallo la conexión (esperado 200)"
+      echo "❌ Falló la conexión (esperado 200)"
       exit 1
     fi
-    echo "Conexion OK con Dynatrace"
+    echo "✅ Conexión OK con Dynatrace"
   displayName: "Test conexión Dynatrace"
   env:
     DYNATRACE_API_TOKEN: $(DYNATRACE_API_TOKEN)
     DYNATRACE_URL: $(DYNATRACE_URL)
 
-# 2) Log inicial de BUILD (usa epoch en ms y heredoc seguro)
+# 2️⃣ LOG INICIAL DE BUILD
 - bash: |
     set -e
     TS_MS=$(date +%s%3N)
-    echo "Enviando LOG inicial de Build a Dynatrace..."
+    echo "🚀 Enviando LOG inicial de Build a Dynatrace..."
 
     BODY=$(cat <<EOF
 [
@@ -56,21 +53,22 @@ steps:
 ]
 EOF
 )
+
     echo "Payload:"
     echo "$BODY"
 
     RESP=$(curl -s -o /tmp/resp.json -w "%{http_code}" -X POST "$DYNATRACE_URL/api/v2/logs/ingest" \
       -H "Authorization: Api-Token $DYNATRACE_API_TOKEN" \
-      -H "Content-Type: application/json; charset=utf-8" \
-      -H "Accept: application/json; charset=utf-8" \
+      -H "Content-Type: application/json" \
       -d "$BODY")
+
     echo "HTTP CODE: $RESP"
     cat /tmp/resp.json || true
-    if [ "${RESP:0:1}" != "2" ]; then
-      echo "Error enviando log inicial"
+    if [[ "$RESP" != 2* ]]; then
+      echo "❌ Error enviando log inicial"
       exit 1
     fi
-    echo "Log inicial enviado"
+    echo "✅ Log inicial enviado"
   displayName: "Enviar LOG inicial de Build"
   env:
     DYNATRACE_API_TOKEN: $(DYNATRACE_API_TOKEN)
@@ -78,7 +76,7 @@ EOF
     SERVICE_NAME: $(SERVICE_NAME)
     ENV_NAME: $(ENV_NAME)
 
-# 3) Log final de BUILD (siempre se ejecuta; detecta estado del Job)
+# 3️⃣ LOG FINAL DE BUILD
 - bash: |
     set -e
     TS_MS=$(date +%s%3N)
@@ -87,7 +85,7 @@ EOF
     else
       STATUS="FAILED"
     fi
-    echo "Enviando log final de build ($STATUS)..."
+    echo "📦 Enviando log final de build ($STATUS)..."
 
     BODY=$(cat <<EOF
 [
@@ -108,22 +106,23 @@ EOF
 ]
 EOF
 )
+
     echo "Payload:"
     echo "$BODY"
 
     RESP=$(curl -s -o /tmp/resp.json -w "%{http_code}" -X POST "$DYNATRACE_URL/api/v2/logs/ingest" \
       -H "Authorization: Api-Token $DYNATRACE_API_TOKEN" \
-      -H "Content-Type: application/json; charset=utf-8" \
-      -H "Accept: application/json; charset=utf-8" \
+      -H "Content-Type: application/json" \
       -d "$BODY")
+
     echo "HTTP CODE: $RESP"
     cat /tmp/resp.json || true
-    if [ "${RESP:0:1}" != "2" ]; then
-      echo "Error enviando log final"
+    if [[ "$RESP" != 2* ]]; then
+      echo "❌ Error enviando log final"
       exit 1
     fi
-    echo "Log final de Build enviado ($STATUS)"
-  displayName: "Enviar LOG final de Build a Dynatrace"
+    echo "✅ Log final enviado ($STATUS)"
+  displayName: "Enviar LOG final de Build"
   condition: always()
   env:
     DYNATRACE_API_TOKEN: $(DYNATRACE_API_TOKEN)
@@ -131,11 +130,11 @@ EOF
     SERVICE_NAME: $(SERVICE_NAME)
     ENV_NAME: $(ENV_NAME)
 
-# 4) Log de RELEASE (opcional; solo si el pipeline hace publicación)
+# 4️⃣ LOG DE RELEASE (opcional)
 - bash: |
     set -e
     TS_MS=$(date +%s%3N)
-    echo "Enviando log de RELEASE..."
+    echo "🚢 Enviando log de RELEASE..."
 
     BODY=$(cat <<EOF
 [
@@ -154,22 +153,23 @@ EOF
 ]
 EOF
 )
+
     echo "Payload:"
     echo "$BODY"
 
     RESP=$(curl -s -o /tmp/resp.json -w "%{http_code}" -X POST "$DYNATRACE_URL/api/v2/logs/ingest" \
       -H "Authorization: Api-Token $DYNATRACE_API_TOKEN" \
-      -H "Content-Type: application/json; charset=utf-8" \
-      -H "Accept: application/json; charset=utf-8" \
+      -H "Content-Type: application/json" \
       -d "$BODY")
+
     echo "HTTP CODE: $RESP"
     cat /tmp/resp.json || true
-    if [ "${RESP:0:1}" != "2" ]; then
-      echo "Error enviando log de RELEASE"
+    if [[ "$RESP" != 2* ]]; then
+      echo "❌ Error enviando log de RELEASE"
       exit 1
     fi
-    echo "Log de RELEASE enviado"
-  displayName: "Enviar LOG de Release a Dynatrace"
+    echo "✅ Log de RELEASE enviado"
+  displayName: "Enviar LOG de Release"
   condition: succeeded()
   env:
     DYNATRACE_API_TOKEN: $(DYNATRACE_API_TOKEN)
